@@ -55,6 +55,40 @@ async function verifyDiscordBotToken() {
   }
 }
 
+async function sendInvoiceToDiscord(invoice: Invoice) {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  const channelId = process.env.DISCORD_CHANNEL_ID;
+  if (!token || !channelId) return false;
+
+  const content = [
+    "**CryptoPay · New invoice**",
+    `Invoice: \`${invoice.invoiceNumber}\``,
+    `Customer: **${invoice.customer.replace(/[*_`~]/g, "")}**`,
+    `Amount: **${invoice.amount.toFixed(2)} ${invoice.currency}**`,
+    `Pay with: **${invoice.cryptoAmount} ${invoice.cryptoSymbol}** on \`${invoice.network}\``,
+    `Service fee: ${invoice.fee.toFixed(2)} ${invoice.currency}`,
+    `Payment address: \`${invoice.address ?? "Not assigned"}\``,
+    `Expires: ${invoice.expiresAt}`,
+  ].join("\n");
+
+  try {
+    const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content,
+        allowed_mentions: { parse: [] },
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 const invoices: Invoice[] = [
   {
     id: "inv_001",
@@ -133,7 +167,7 @@ router.get("/invoices", (req, res) => {
   res.json(ListInvoicesResponse.parse(filtered.slice(0, query.limit)));
 });
 
-router.post("/invoices", (req, res) => {
+router.post("/invoices", async (req, res) => {
   const body = CreateInvoiceBody.parse(req.body);
   const now = new Date();
   const fee = Number((body.amount * (settings.serviceFeePercent / 100)).toFixed(2));
@@ -154,6 +188,8 @@ router.post("/invoices", (req, res) => {
     address: body.cryptoSymbol === "BTC" ? "bc1q...8z3m" : body.cryptoSymbol === "ETH" ? "0x9b...a71c" : "TQ7x...4Kp9",
   };
   invoices.unshift(invoice);
+  const discordSent = await sendInvoiceToDiscord(invoice);
+  req.log.info({ invoiceId: invoice.id, discordSent }, "Invoice created");
   res.status(201).json(invoice);
 });
 
