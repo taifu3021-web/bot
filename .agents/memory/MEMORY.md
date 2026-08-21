@@ -1,0 +1,1 @@
+- [Crypto payment API](crypto-pay-setup.md) — generated integer schemas need care because this workspace currently resolves Zod 3.

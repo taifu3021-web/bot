@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: payments
+    description: Crypto payment operations
+  - name: settings
+    description: Bot and fee settings
 paths:
   /healthz:
     get:
@@ -24,6 +28,106 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [payments]
+      summary: Get payment dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [payments]
+      summary: List payment invoices
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, pending, paid, expired]
+            default: all
+        - name: limit
+          in: query
+          schema:
+            type: number
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Invoice list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invoice"
+    post:
+      operationId: createInvoice
+      tags: [payments]
+      summary: Create a payment invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceInput"
+      responses:
+        "201":
+          description: Created invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+  /prices:
+    get:
+      operationId: getCryptoPrices
+      tags: [payments]
+      summary: Get configured crypto prices
+      responses:
+        "200":
+          description: Current crypto prices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CryptoPrice"
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get bot and fee settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update bot and fee settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +137,74 @@ components:
           type: string
       required:
         - status
+    Invoice:
+      type: object
+      required: [id, invoiceNumber, customer, amount, currency, cryptoAmount, cryptoSymbol, status, createdAt, expiresAt, network, fee]
+      properties:
+        id: { type: string }
+        invoiceNumber: { type: string }
+        customer: { type: string }
+        note: { type: ["string", "null"] }
+        amount: { type: number }
+        currency: { type: string }
+        cryptoAmount: { type: number }
+        cryptoSymbol: { type: string }
+        status: { type: string, enum: [pending, paid, expired] }
+        createdAt: { type: string }
+        expiresAt: { type: string }
+        network: { type: string }
+        fee: { type: number }
+        address: { type: string }
+    InvoiceInput:
+      type: object
+      required: [customer, amount, currency, cryptoSymbol, network]
+      properties:
+        customer: { type: string, minLength: 1 }
+        note: { type: string }
+        amount: { type: number, minimum: 0.01 }
+        currency: { type: string, enum: [USD, EUR, THB] }
+        cryptoSymbol: { type: string, enum: [USDT, USDC, BTC, ETH] }
+        network: { type: string, enum: [TRC20, ERC20, BTC, BEP20] }
+        expiresInMinutes: { type: number, minimum: 15, maximum: 1440, default: 60 }
+    CryptoPrice:
+      type: object
+      required: [symbol, name, price, change24h, updatedAt]
+      properties:
+        symbol: { type: string }
+        name: { type: string }
+        price: { type: number }
+        change24h: { type: number }
+        updatedAt: { type: string }
+    Dashboard:
+      type: object
+      required: [totalReceived, pendingAmount, successRate, activeInvoices, recentActivity]
+      properties:
+        totalReceived: { type: number }
+        pendingAmount: { type: number }
+        successRate: { type: number }
+        activeInvoices: { type: number }
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+    Settings:
+      type: object
+      required: [botName, botConnected, serviceFeePercent, enabledCurrencies, defaultExpiryMinutes]
+      properties:
+        botName: { type: string }
+        botConnected: { type: boolean }
+        serviceFeePercent: { type: number }
+        enabledCurrencies:
+          type: array
+          items: { type: string }
+        defaultExpiryMinutes: { type: number }
+    SettingsUpdate:
+      type: object
+      properties:
+        botName: { type: string, minLength: 1 }
+        serviceFeePercent: { type: number, minimum: 0, maximum: 20 }
+        enabledCurrencies:
+          type: array
+          items: { type: string, enum: [USDT, USDC, BTC, ETH] }
+        defaultExpiryMinutes: { type: number, minimum: 15, maximum: 1440 }
 
