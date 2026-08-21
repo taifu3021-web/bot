@@ -41,6 +41,20 @@ let settings = {
   defaultExpiryMinutes: 60,
 };
 
+async function verifyDiscordBotToken() {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return false;
+
+  try {
+    const response = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: `Bot ${token}` },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 const invoices: Invoice[] = [
   {
     id: "inv_001",
@@ -147,14 +161,15 @@ router.get("/prices", (_req, res) => {
   res.json(GetCryptoPricesResponse.parse(prices));
 });
 
-router.get("/settings", (_req, res) => {
-  res.json(GetSettingsResponse.parse(settings));
+router.get("/settings", async (_req, res) => {
+  const botConnected = await verifyDiscordBotToken();
+  res.json(GetSettingsResponse.parse({ ...settings, botConnected }));
 });
 
 router.patch("/settings", (req, res) => {
   const update = UpdateSettingsBody.parse(req.body);
   settings = { ...settings, ...update };
-  res.json(GetSettingsResponse.parse(settings));
+  res.json(GetSettingsResponse.parse({ ...settings, botConnected: Boolean(process.env.DISCORD_BOT_TOKEN) }));
 });
 
 export default router;
