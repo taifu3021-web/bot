@@ -83,7 +83,7 @@ export async function startDiscordBot() {
 
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-  client.once("ready", async (readyClient) => {
+  client.once("clientReady", async (readyClient) => {
     try {
       await registerCommands(token, readyClient.user.id);
       logger.info({ tag: readyClient.user.tag }, "Discord bot is ready");
