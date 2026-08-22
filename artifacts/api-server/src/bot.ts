@@ -6,6 +6,12 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from "discord.js";
 import { logger } from "./lib/logger";
 
@@ -20,6 +26,8 @@ type ConvenienceInvoice = {
 };
 
 const invoices = new Map<string, ConvenienceInvoice>();
+const REVIEW_BUTTON_ID = "buyer-review";
+const REVIEW_MODAL_ID = "buyer-review-modal";
 
 const commands = [
   new SlashCommandBuilder()
@@ -74,6 +82,36 @@ async function registerCommands(token: string, applicationId: string) {
   logger.info("Previous Discord slash commands cleared and current commands registered");
 }
 
+async function publishReviewButton(client: Client) {
+  const channelId = process.env.DISCORD_CHANNEL_ID;
+  if (!channelId) {
+    logger.warn("Buyer review button not published: DISCORD_CHANNEL_ID is not configured");
+    return;
+  }
+
+  const channel = await client.channels.fetch(channelId);
+  if (!channel?.isTextBased() || !("send" in channel)) {
+    logger.error({ channelId }, "Buyer review button could not be published: channel is not text-based");
+    return;
+  }
+
+  const button = new ButtonBuilder()
+    .setCustomId(REVIEW_BUTTON_ID)
+    .setLabel("留下買家評價")
+    .setEmoji("⭐")
+    .setStyle(ButtonStyle.Primary);
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+
+  await channel.send({
+    content: [
+      "## 買家評價",
+      "感謝您的購買！請點擊下方按鈕，填寫星級與使用心得。",
+    ].join("\n"),
+    components: [row],
+  });
+  logger.info({ channelId }, "Buyer review button published");
+}
+
 export async function startDiscordBot() {
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) {
@@ -86,6 +124,11 @@ export async function startDiscordBot() {
   client.once("clientReady", async (readyClient) => {
     try {
       await registerCommands(token, readyClient.user.id);
+      try {
+        await publishReviewButton(readyClient);
+      } catch (err) {
+        logger.error({ err }, "Buyer review button publication failed");
+      }
       logger.info({ tag: readyClient.user.tag }, "Discord bot is ready");
     } catch (err) {
       logger.error({ err }, "Discord slash command registration failed");
@@ -93,6 +136,60 @@ export async function startDiscordBot() {
   });
 
   client.on("interactionCreate", async (interaction) => {
+    if (interaction.isButton() && interaction.customId === REVIEW_BUTTON_ID) {
+      const modal = new ModalBuilder()
+        .setCustomId(REVIEW_MODAL_ID)
+        .setTitle("買家評價");
+      const rating = new TextInputBuilder()
+        .setCustomId("rating")
+        .setLabel("評分（1 到 5 顆星）")
+        .setPlaceholder("例如：5")
+        .setStyle(TextInputStyle.Short)
+        .setMinLength(1)
+        .setMaxLength(1)
+        .setRequired(true);
+      const feedback = new TextInputBuilder()
+        .setCustomId("feedback")
+        .setLabel("評價內容")
+        .setPlaceholder("請分享您的購買體驗")
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(1000)
+        .setRequired(true);
+      modal.addComponents(
+        new ActionRowBuilder<TextInputBuilder>().addComponents(rating),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(feedback),
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === REVIEW_MODAL_ID) {
+      const rating = Number.parseInt(interaction.fields.getTextInputValue("rating"), 10);
+      const feedback = interaction.fields.getTextInputValue("feedback").trim();
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5 || !feedback) {
+        await interaction.reply({
+          content: "請輸入 1 到 5 的整數評分，以及不能空白的評價內容。",
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const stars = "⭐".repeat(rating) + "☆".repeat(5 - rating);
+      await interaction.reply({
+        content: "感謝您的評價！",
+        ephemeral: true,
+      });
+      await interaction.channel?.send({
+        content: [
+          "## 新買家評價",
+          `買家：${interaction.user}`,
+          `評分：${stars}（${rating}/5）`,
+          `評價：${feedback}`,
+        ].join("\n"),
+      });
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
     if (!isAdmin(interaction)) {
       await interaction.reply({ content: "只有具備管理伺服器權限的管理員可以使用此指令。", ephemeral: true });
