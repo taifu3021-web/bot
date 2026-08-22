@@ -50,9 +50,6 @@ export type InvoiceInputCryptoSymbol = typeof InvoiceInputCryptoSymbol[keyof typ
 
 export const InvoiceInputCryptoSymbol = {
   USDT: 'USDT',
-  USDC: 'USDC',
-  BTC: 'BTC',
-  ETH: 'ETH',
 } as const;
 
 export type InvoiceInputNetwork = typeof InvoiceInputNetwork[keyof typeof InvoiceInputNetwork];
@@ -61,7 +58,6 @@ export type InvoiceInputNetwork = typeof InvoiceInputNetwork[keyof typeof Invoic
 export const InvoiceInputNetwork = {
   TRC20: 'TRC20',
   ERC20: 'ERC20',
-  BTC: 'BTC',
   BEP20: 'BEP20',
 } as const;
 
@@ -110,9 +106,6 @@ export type SettingsUpdateEnabledCurrenciesItem = typeof SettingsUpdateEnabledCu
 
 export const SettingsUpdateEnabledCurrenciesItem = {
   USDT: 'USDT',
-  USDC: 'USDC',
-  BTC: 'BTC',
-  ETH: 'ETH',
 } as const;
 
 export interface SettingsUpdate {

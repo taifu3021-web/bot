@@ -94,8 +94,8 @@ export const CreateInvoiceBody = zod.object({
   "note": zod.string().optional(),
   "amount": zod.number().min(createInvoiceBodyAmountMin),
   "currency": zod.enum(['USD', 'EUR', 'THB']),
-  "cryptoSymbol": zod.enum(['USDT', 'USDC', 'BTC', 'ETH']),
-  "network": zod.enum(['TRC20', 'ERC20', 'BTC', 'BEP20']),
+  "cryptoSymbol": zod.enum(['USDT']),
+  "network": zod.enum(['TRC20', 'ERC20', 'BEP20']),
   "expiresInMinutes": zod.number().min(createInvoiceBodyExpiresInMinutesMin).max(createInvoiceBodyExpiresInMinutesMax).default(createInvoiceBodyExpiresInMinutesDefault)
 })
 
@@ -157,7 +157,7 @@ export const updateSettingsBodyDefaultExpiryMinutesMax = 1440;
 export const UpdateSettingsBody = zod.object({
   "botName": zod.string().min(1).optional(),
   "serviceFeePercent": zod.number().min(updateSettingsBodyServiceFeePercentMin).max(updateSettingsBodyServiceFeePercentMax).optional(),
-  "enabledCurrencies": zod.array(zod.enum(['USDT', 'USDC', 'BTC', 'ETH'])).optional(),
+  "enabledCurrencies": zod.array(zod.enum(['USDT'])).optional(),
   "defaultExpiryMinutes": zod.number().min(updateSettingsBodyDefaultExpiryMinutesMin).max(updateSettingsBodyDefaultExpiryMinutesMax).optional()
 })
 

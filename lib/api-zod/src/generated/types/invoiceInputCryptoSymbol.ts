@@ -11,7 +11,4 @@ export type InvoiceInputCryptoSymbol = typeof InvoiceInputCryptoSymbol[keyof typ
 
 export const InvoiceInputCryptoSymbol = {
   USDT: 'USDT',
-  USDC: 'USDC',
-  BTC: 'BTC',
-  ETH: 'ETH',
 } as const;

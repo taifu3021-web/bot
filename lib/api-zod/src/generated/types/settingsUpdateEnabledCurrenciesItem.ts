@@ -11,7 +11,4 @@ export type SettingsUpdateEnabledCurrenciesItem = typeof SettingsUpdateEnabledCu
 
 export const SettingsUpdateEnabledCurrenciesItem = {
   USDT: 'USDT',
-  USDC: 'USDC',
-  BTC: 'BTC',
-  ETH: 'ETH',
 } as const;

@@ -28,9 +28,6 @@ type Invoice = {
 
 const prices = [
   { symbol: "USDT", name: "Tether", price: 1, change24h: 0.02, updatedAt: "Just now" },
-  { symbol: "USDC", name: "USD Coin", price: 1, change24h: 0.01, updatedAt: "Just now" },
-  { symbol: "BTC", name: "Bitcoin", price: 64280.5, change24h: 2.84, updatedAt: "Just now" },
-  { symbol: "ETH", name: "Ethereum", price: 3521.72, change24h: 1.62, updatedAt: "Just now" },
 ];
 
 let settings = {
@@ -145,6 +142,13 @@ function calculateCryptoAmount(amount: number, symbol: string) {
   return Number((amount / price).toFixed(symbol === "USDT" || symbol === "USDC" ? 2 : 6));
 }
 
+function getUsdtAddress(network: string) {
+  if (network === "TRC20") return process.env.USDT_TRC20_ADDRESS;
+  if (network === "ERC20") return process.env.USDT_ERC20_ADDRESS;
+  if (network === "BEP20") return process.env.USDT_BEP20_ADDRESS;
+  return undefined;
+}
+
 const router: IRouter = Router();
 
 router.get("/dashboard", (_req, res) => {
@@ -185,7 +189,7 @@ router.post("/invoices", async (req, res) => {
     expiresAt: new Date(now.getTime() + body.expiresInMinutes * 60_000).toISOString(),
     network: body.network,
     fee,
-    address: body.cryptoSymbol === "BTC" ? "bc1q...8z3m" : body.cryptoSymbol === "ETH" ? "0x9b...a71c" : "TQ7x...4Kp9",
+    address: getUsdtAddress(body.network),
   };
   invoices.unshift(invoice);
   const discordSent = await sendInvoiceToDiscord(invoice);

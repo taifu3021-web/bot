@@ -163,8 +163,8 @@ components:
         note: { type: string }
         amount: { type: number, minimum: 0.01 }
         currency: { type: string, enum: [USD, EUR, THB] }
-        cryptoSymbol: { type: string, enum: [USDT, USDC, BTC, ETH] }
-        network: { type: string, enum: [TRC20, ERC20, BTC, BEP20] }
+        cryptoSymbol: { type: string, enum: [USDT] }
+        network: { type: string, enum: [TRC20, ERC20, BEP20] }
         expiresInMinutes: { type: number, minimum: 15, maximum: 1440, default: 60 }
     CryptoPrice:
       type: object
@@ -205,6 +205,6 @@ components:
         serviceFeePercent: { type: number, minimum: 0, maximum: 20 }
         enabledCurrencies:
           type: array
-          items: { type: string, enum: [USDT, USDC, BTC, ETH] }
+          items: { type: string, enum: [USDT] }
         defaultExpiryMinutes: { type: number, minimum: 15, maximum: 1440 }
 

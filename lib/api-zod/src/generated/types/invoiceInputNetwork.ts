@@ -12,6 +12,5 @@ export type InvoiceInputNetwork = typeof InvoiceInputNetwork[keyof typeof Invoic
 export const InvoiceInputNetwork = {
   TRC20: 'TRC20',
   ERC20: 'ERC20',
-  BTC: 'BTC',
   BEP20: 'BEP20',
 } as const;
