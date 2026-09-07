@@ -6,6 +6,7 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
+  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -57,6 +58,25 @@ const commands = [
   new SlashCommandBuilder()
     .setName("pending")
     .setDescription("查看待繳費單"),
+  new SlashCommandBuilder()
+    .setName("say")
+    .setDescription("讓機器人代替你發佈訊息或公告")
+    .addStringOption((option) =>
+      option.setName("message").setDescription("要讓機器人說的內容").setMaxLength(4000).setRequired(true),
+    )
+    .addStringOption((option) =>
+      option.setName("title").setDescription("選填：公告標題").setMaxLength(256).setRequired(false),
+    )
+    .addStringOption((option) =>
+      option
+        .setName("color")
+        .setDescription("側邊顏色，例如 #5865F2")
+        .setMaxLength(7)
+        .setRequired(false),
+    )
+    .addStringOption((option) =>
+      option.setName("footer").setDescription("公告頁尾文字").setMaxLength(2048).setRequired(false),
+    ),
 ].map((command) => command.toJSON());
 
 function isAdmin(interaction: ChatInputCommandInteraction) {
@@ -239,6 +259,45 @@ export async function startDiscordBot() {
           ? pending.map(formatInvoice).join("\n\n")
           : "目前沒有待付款的超商代碼繳費單。",
       );
+      return;
+    }
+
+    if (interaction.commandName === "say") {
+      const message = interaction.options.getString("message", true);
+      const title = interaction.options.getString("title")?.trim();
+      const colorInput = interaction.options.getString("color")?.trim();
+      const footer = interaction.options.getString("footer")?.trim();
+
+      let color = 0x5865f2;
+      if (colorInput) {
+        if (!/^#[0-9a-fA-F]{6}$/.test(colorInput)) {
+          await interaction.reply({
+            content: "顏色格式不正確，請使用六位十六進位格式，例如 `#5865F2`。",
+            ephemeral: true,
+          });
+          return;
+        }
+        color = Number.parseInt(colorInput.slice(1), 16);
+      }
+
+      if (!interaction.channel?.isTextBased() || !("send" in interaction.channel)) {
+        await interaction.reply({ content: "此頻道無法發佈公告。", ephemeral: true });
+        return;
+      }
+
+      const needsEmbed = Boolean(title || colorInput || footer);
+      if (needsEmbed) {
+        const embed = new EmbedBuilder()
+          .setColor(color)
+          .setDescription(message)
+          .setTimestamp();
+        if (title) embed.setTitle(title);
+        if (footer) embed.setFooter({ text: footer });
+        await interaction.channel.send({ embeds: [embed] });
+      } else {
+        await interaction.channel.send({ content: message });
+      }
+      await interaction.reply({ content: "公告已由機器人發佈。", ephemeral: true });
     }
   });
 
