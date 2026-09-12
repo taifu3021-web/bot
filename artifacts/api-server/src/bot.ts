@@ -107,6 +107,13 @@ function reviewModal() {
     .setMinLength(1)
     .setMaxLength(1)
     .setRequired(true);
+  const product = new TextInputBuilder()
+    .setCustomId("product")
+    .setLabel("購買商品")
+    .setPlaceholder("例如：USDT 代購、商品名稱")
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(100)
+    .setRequired(true);
   const feedback = new TextInputBuilder()
     .setCustomId("feedback")
     .setLabel("評價內容")
@@ -116,6 +123,7 @@ function reviewModal() {
     .setRequired(true);
   modal.addComponents(
     new ActionRowBuilder<TextInputBuilder>().addComponents(rating),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(product),
     new ActionRowBuilder<TextInputBuilder>().addComponents(feedback),
   );
   return modal;
@@ -199,6 +207,7 @@ export async function startDiscordBot() {
       }
 
       const stars = "⭐".repeat(rating) + "☆".repeat(5 - rating);
+      const product = interaction.fields.getTextInputValue("product").trim();
       await interaction.reply({
         content: "感謝您的評價！",
         ephemeral: true,
@@ -207,6 +216,7 @@ export async function startDiscordBot() {
         content: [
           "## 新買家評價",
           `買家：${interaction.user}`,
+          `購買商品：${product}`,
           `評分：${stars}（${rating}/5）`,
           `評價：${feedback}`,
         ].join("\n"),
