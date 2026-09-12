@@ -29,6 +29,8 @@ type ConvenienceInvoice = {
 const invoices = new Map<string, ConvenienceInvoice>();
 const REVIEW_BUTTON_ID = "buyer-review";
 const REVIEW_MODAL_ID = "buyer-review-modal";
+const REVIEW_INVOICE_BUTTON_PREFIX = "buyer-review-invoice:";
+const REVIEW_INVOICE_MODAL_PREFIX = "buyer-review-modal-invoice:";
 
 const commands = [
   new SlashCommandBuilder()
@@ -95,6 +97,41 @@ function formatInvoice(invoice: ConvenienceInvoice) {
   ].filter(Boolean).join("\n");
 }
 
+function invoiceReviewRow(invoiceId?: string) {
+  const button = new ButtonBuilder()
+    .setCustomId(invoiceId ? `${REVIEW_INVOICE_BUTTON_PREFIX}${invoiceId}` : REVIEW_BUTTON_ID)
+    .setLabel(invoiceId ? "購買後留下評價" : "留下買家評價")
+    .setEmoji("⭐")
+    .setStyle(ButtonStyle.Primary);
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+}
+
+function reviewModal(invoiceId?: string) {
+  const modal = new ModalBuilder()
+    .setCustomId(invoiceId ? `${REVIEW_INVOICE_MODAL_PREFIX}${invoiceId}` : REVIEW_MODAL_ID)
+    .setTitle("買家評價");
+  const rating = new TextInputBuilder()
+    .setCustomId("rating")
+    .setLabel("評分（1 到 5 顆星）")
+    .setPlaceholder("例如：5")
+    .setStyle(TextInputStyle.Short)
+    .setMinLength(1)
+    .setMaxLength(1)
+    .setRequired(true);
+  const feedback = new TextInputBuilder()
+    .setCustomId("feedback")
+    .setLabel("評價內容")
+    .setPlaceholder("請分享您的購買體驗")
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(1000)
+    .setRequired(true);
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(rating),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(feedback),
+  );
+  return modal;
+}
+
 async function registerCommands(token: string, applicationId: string) {
   const rest = new REST({ version: "10" }).setToken(token);
   await rest.put(Routes.applicationCommands(applicationId), { body: [] });
@@ -157,33 +194,36 @@ export async function startDiscordBot() {
 
   client.on("interactionCreate", async (interaction) => {
     if (interaction.isButton() && interaction.customId === REVIEW_BUTTON_ID) {
-      const modal = new ModalBuilder()
-        .setCustomId(REVIEW_MODAL_ID)
-        .setTitle("買家評價");
-      const rating = new TextInputBuilder()
-        .setCustomId("rating")
-        .setLabel("評分（1 到 5 顆星）")
-        .setPlaceholder("例如：5")
-        .setStyle(TextInputStyle.Short)
-        .setMinLength(1)
-        .setMaxLength(1)
-        .setRequired(true);
-      const feedback = new TextInputBuilder()
-        .setCustomId("feedback")
-        .setLabel("評價內容")
-        .setPlaceholder("請分享您的購買體驗")
-        .setStyle(TextInputStyle.Paragraph)
-        .setMaxLength(1000)
-        .setRequired(true);
-      modal.addComponents(
-        new ActionRowBuilder<TextInputBuilder>().addComponents(rating),
-        new ActionRowBuilder<TextInputBuilder>().addComponents(feedback),
-      );
-      await interaction.showModal(modal);
+      await interaction.showModal(reviewModal());
       return;
     }
 
-    if (interaction.isModalSubmit() && interaction.customId === REVIEW_MODAL_ID) {
+    if (interaction.isButton() && interaction.customId.startsWith(REVIEW_INVOICE_BUTTON_PREFIX)) {
+      const invoiceId = interaction.customId.slice(REVIEW_INVOICE_BUTTON_PREFIX.length);
+      const invoice = invoices.get(invoiceId);
+      if (!invoice) {
+        await interaction.reply({ content: "找不到這筆購買單，可能已經過期。", ephemeral: true });
+        return;
+      }
+      if (invoice.status !== "paid") {
+        await interaction.reply({
+          content: "付款完成後才能留下這筆購買的評價，請付款後再試一次。",
+          ephemeral: true,
+        });
+        return;
+      }
+      await interaction.showModal(reviewModal(invoiceId));
+      return;
+    }
+
+    if (
+      interaction.isModalSubmit() &&
+      (interaction.customId === REVIEW_MODAL_ID ||
+        interaction.customId.startsWith(REVIEW_INVOICE_MODAL_PREFIX))
+    ) {
+      const invoiceId = interaction.customId.startsWith(REVIEW_INVOICE_MODAL_PREFIX)
+        ? interaction.customId.slice(REVIEW_INVOICE_MODAL_PREFIX.length)
+        : undefined;
       const rating = Number.parseInt(interaction.fields.getTextInputValue("rating"), 10);
       const feedback = interaction.fields.getTextInputValue("feedback").trim();
       if (!Number.isInteger(rating) || rating < 1 || rating > 5 || !feedback) {
@@ -203,9 +243,10 @@ export async function startDiscordBot() {
         content: [
           "## 新買家評價",
           `買家：${interaction.user}`,
+          invoiceId ? `購買單：\`${invoiceId}\`` : "",
           `評分：${stars}（${rating}/5）`,
           `評價：${feedback}`,
-        ].join("\n"),
+        ].filter(Boolean).join("\n"),
       });
       return;
     }
@@ -233,7 +274,10 @@ export async function startDiscordBot() {
         status: "pending",
       };
       invoices.set(id, invoice);
-      await interaction.reply(formatInvoice(invoice));
+      await interaction.reply({
+        content: formatInvoice(invoice),
+        components: [invoiceReviewRow(invoice.id)],
+      });
       return;
     }
 
@@ -245,7 +289,10 @@ export async function startDiscordBot() {
         return;
       }
       invoice.status = "paid";
-      await interaction.reply(`已標記為已付款：\n${formatInvoice(invoice)}`);
+      await interaction.reply({
+        content: `已標記為已付款：\n${formatInvoice(invoice)}`,
+        components: [invoiceReviewRow(invoice.id)],
+      });
       return;
     }
 
